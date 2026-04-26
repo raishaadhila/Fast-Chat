@@ -7,11 +7,14 @@ const customerService = require('../profiles/customerService');
 const analyticsEvents = require('../analytics/events');
 const logger = require('../utils/logger');
 
-const CHANNEL_SENDERS = {
-  whatsapp: require('../channels/whatsapp').sendWhatsAppMessage,
-  telegram: require('../channels/telegram').sendTelegramMessage,
-  instagram: require('../channels/instagram').sendInstagramMessage,
-};
+function getSender(channel) {
+  const senders = {
+    whatsapp: () => require('../channels/whatsapp').sendWhatsAppMessage,
+    telegram: () => require('../channels/telegram').sendTelegramMessage,
+    instagram: () => require('../channels/instagram').sendInstagramMessage,
+  };
+  return senders[channel]?.();
+}
 
 // Assign AI model per channel: complex queries → OpenAI, general → Anthropic
 const CHANNEL_MODEL = {
@@ -48,7 +51,7 @@ async function route(incomingMessage) {
     await contextManager.appendMessage(customerId, { role: 'user', content: text });
     await contextManager.appendMessage(customerId, { role: 'assistant', content: reply });
 
-    const send = CHANNEL_SENDERS[channel];
+    const send = getSender(channel);
     await send(customerId, reply);
 
     await analyticsEvents.log({

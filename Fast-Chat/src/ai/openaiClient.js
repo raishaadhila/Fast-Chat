@@ -1,7 +1,11 @@
 const OpenAI = require('openai');
 const config = require('../config');
 
-const openai = new OpenAI({ apiKey: config.openai.apiKey });
+let _client = null;
+function getClient() {
+  if (!_client) _client = new OpenAI({ apiKey: config.openai.apiKey });
+  return _client;
+}
 
 async function generateReply({ systemPrompt, history, userMessage }) {
   const messages = [
@@ -10,7 +14,7 @@ async function generateReply({ systemPrompt, history, userMessage }) {
     { role: 'user', content: userMessage },
   ];
 
-  const response = await openai.chat.completions.create({
+  const response = await getClient().chat.completions.create({
     model: 'gpt-4o',
     messages,
     max_tokens: 512,

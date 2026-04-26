@@ -3,7 +3,13 @@ const config = require('../config');
 const messageRouter = require('../router/messageRouter');
 const logger = require('../utils/logger');
 
-const bot = new TelegramBot(config.telegram.botToken);
+let bot = null;
+function getBot() {
+  if (!bot && config.telegram.botToken) {
+    bot = new TelegramBot(config.telegram.botToken);
+  }
+  return bot;
+}
 
 async function handleTelegram(req, res) {
   const update = req.body;
@@ -25,7 +31,7 @@ async function handleTelegram(req, res) {
 }
 
 async function sendTelegramMessage(chatId, text) {
-  await bot.sendMessage(chatId, text);
+  await getBot().sendMessage(chatId, text);
   logger.info(`Telegram message sent to ${chatId}`);
 }
 
