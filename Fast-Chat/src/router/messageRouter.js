@@ -1,3 +1,4 @@
+const geminiClient = require('../ai/geminiClient');
 const openaiClient = require('../ai/openaiClient');
 const anthropicClient = require('../ai/anthropicClient');
 const contextManager = require('../ai/contextManager');
@@ -5,6 +6,8 @@ const toneCustomizer = require('../ai/toneCustomizer');
 const fallback = require('../ai/fallback');
 const customerService = require('../profiles/customerService');
 const analyticsEvents = require('../analytics/events');
+const businessSkills = require('../ai/businessSkills');
+const config = require('../config');
 const logger = require('../utils/logger');
 
 function getSender(channel) {
@@ -16,12 +19,19 @@ function getSender(channel) {
   return senders[channel]?.();
 }
 
-// Assign AI model per channel: complex queries → OpenAI, general → Anthropic
-const CHANNEL_MODEL = {
-  whatsapp: 'openai',
-  telegram: 'anthropic',
-  instagram: 'anthropic',
-};
+// Pick AI provider: Gemini if key exists (free), else OpenAI or Anthropic
+function pickModel() {
+  if (config.gemini.apiKey) return 'gemini';
+  if (config.openai.apiKey) return 'openai';
+  if (config.anthropic.apiKey) return 'anthropic';
+  throw new Error('No AI provider configured. Set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY.');
+}
+
+async function generateReply({ model, systemPrompt, history, userMessage }) {
+  if (model === 'openai') return openaiClient.generateReply({ systemPrompt, history, userMessage });
+  if (model === 'anthropic') return anthropicClient.generateReply({ systemPrompt, history, userMessage });
+  return geminiClient.generateReply({ systemPrompt, history, userMessage });
+}
 
 async function route(incomingMessage) {
   const { channel, customerId, customerName, text, timestamp } = incomingMessage;
@@ -32,16 +42,15 @@ async function route(incomingMessage) {
 
     const profile = await customerService.get(customerId);
     const history = await contextManager.getHistory(customerId);
-    const systemPrompt = toneCustomizer.buildSystemPrompt(profile?.businessTone);
 
-    const model = CHANNEL_MODEL[channel] || 'anthropic';
-    let reply;
+    // Build system prompt: base tone + business skills (FAQ, rules, persona)
+    const systemPrompt = toneCustomizer.buildSystemPrompt(
+      profile?.businessTone,
+      businessSkills.getSystemInstruction()
+    );
 
-    if (model === 'openai') {
-      reply = await openaiClient.generateReply({ systemPrompt, history, userMessage: text });
-    } else {
-      reply = await anthropicClient.generateReply({ systemPrompt, history, userMessage: text });
-    }
+    const model = pickModel();
+    const reply = await generateReply({ model, systemPrompt, history, userMessage: text });
 
     if (!reply || fallback.isUncertain(reply)) {
       await fallback.escalateToAgent({ incomingMessage, reply });
@@ -52,7 +61,7 @@ async function route(incomingMessage) {
     await contextManager.appendMessage(customerId, { role: 'assistant', content: reply });
 
     const send = getSender(channel);
-    await send(customerId, reply);
+    if (send) await send(customerId, reply);
 
     await analyticsEvents.log({
       event: 'message_handled',

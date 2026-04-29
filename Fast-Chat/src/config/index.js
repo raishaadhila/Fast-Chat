@@ -4,6 +4,10 @@ module.exports = {
   port: process.env.PORT || 3000,
   nodeEnv: process.env.NODE_ENV || 'development',
 
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY,
+  },
+
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
   },
@@ -39,4 +43,5 @@ module.exports = {
   },
 
   externalWebhookSecret: process.env.EXTERNAL_WEBHOOK_SECRET,
+  alertChatId: process.env.ALERT_TELEGRAM_CHAT_ID,
 };

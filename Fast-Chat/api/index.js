@@ -6,6 +6,7 @@ const webhookRoutes = require('../src/webhooks');
 const dashboardRoutes = require('../src/dashboard/routes');
 const profileRoutes = require('../src/profiles/routes');
 const analyticsRoutes = require('../src/analytics/routes');
+const businessRoutes = require('../src/business/routes');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/webhook', webhookRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/profiles', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/business', businessRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok', platform: 'vercel' }));
 
